@@ -13,7 +13,7 @@ class DBClient {
       });
   }
 
-  async isAlive() {
+  isAlive() {
     return this.client.isConnected();
   }
 
