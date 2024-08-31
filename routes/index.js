@@ -1,8 +1,8 @@
-import AppController from '../controllers/Appcontroller';
+import AppController from '../controllers/AppController';
 
 const mapRoutes = (app) => {
-  app.get('/status', AppController.getStatus);
-  app.get('/stats', AppController.getStats);
+    app.get('/status', AppController.getStatus);
+    app.get('/stats', AppController.getStats);
 };
 
 export default mapRoutes;
