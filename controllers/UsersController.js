@@ -40,6 +40,7 @@ class UserController {
     }
   }
 
+  // A function to obtain a user based on the authentication token
   static async getMe(request, response) {
     const token = request.header('X-Token');
 
