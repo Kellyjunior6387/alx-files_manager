@@ -100,6 +100,136 @@ class FilesController {
       res.status(500).json({ error: 'Internal Server Error' });
     }
   }
+
+  static async getShow(req, res) {
+    const token = req.header('X-token');
+    if (!token) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    try {
+      const userId = await redisClient.get(`auth_${token}`);
+
+      if (!userId) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      const usersCollection = await dbClient.usersCollection();
+      const user = await usersCollection.findOne({ _id: ObjectId(userId) });
+
+      if (!user) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+      const fileId = req.params.id;
+      const file = await dbClient.filesCollection().findOne({
+        _id: fileId,
+        userId,
+      });
+
+      if (!file) {
+        res.status(404).json({ error: 'Not found' });
+        return;
+      }
+
+      res.status(200).json(file);
+      return;
+    } catch (err) {
+      console.error('Error retrieving user information:', err);
+      res.status(500).json({ error: 'Internal Server Error' });
+    }
+  }
+
+  static async getIndex(req, res) {
+    const token = req.headers['x-token'];
+
+    // Verify user authentication
+    const userId = await redisClient.get(`auth_${token}`);
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const parentId = req.query.parentId || '0'; // Default to root (0)
+    const page = parseInt(req.query.page, 10) || 0; // Default to the first page
+    const pageSize = 20; // Items per page
+
+    try {
+      // Convert parentId to ObjectId if it's not the root
+      const parentQuery = parentId === '0' ? '0' : new ObjectId(parentId);
+
+      const files = await dbClient.filesCollection().aggregate([
+        { $match: { userId, parentId: parentQuery } },
+        { $skip: page * pageSize },
+        { $limit: pageSize },
+      ]).toArray();
+
+      return res.status(200).json(files);
+    } catch (error) {
+      return res.status(500).json({ error: 'Internal Server Error' });
+    }
+  }
+
+  static async putPublish(req, res) {
+    const token = req.headers['x-token'];
+    const fileId = req.params.id;
+
+    // Verify user authentication
+    const userId = await redisClient.get(`auth_${token}`);
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    try {
+      const file = await dbClient.filesCollection().findOne({ _id: new ObjectId(fileId), userId });
+      if (!file) {
+        return res.status(404).json({ error: 'Not found' });
+      }
+
+      // Update isPublic to true
+      await dbClient.filesCollection().updateOne(
+        { _id: new ObjectId(fileId) },
+        { $set: { isPublic: true } },
+      );
+
+      const updatedFile = await dbClient.filesCollection().findOne({ _id: new ObjectId(fileId) });
+
+      return res.status(200).json(updatedFile);
+    } catch (error) {
+      return res.status(500).json({ error: 'Internal Server Error' });
+    }
+  }
+
+  static async putUnpublish(req, res) {
+    const token = req.headers['x-token'];
+    const fileId = req.params.id;
+
+    // Verify user authentication
+    const userId = await redisClient.get(`auth_${token}`);
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    try {
+      const file = await dbClient.filesCollection().findOne({ _id: new ObjectId(fileId), userId });
+      if (!file) {
+        return res.status(404).json({ error: 'Not found' });
+      }
+
+      // Update isPublic to false
+      await dbClient.filesCollection().updateOne(
+        { _id: new ObjectId(fileId) },
+        { $set: { isPublic: false } },
+      );
+
+      const updatedFile = await dbClient.filesCollection().findOne({ _id: new ObjectId(fileId) });
+
+      return res.status(200).json(updatedFile);
+    } catch (error) {
+      return res.status(500).json({ error: 'Internal Server Error' });
+    }
+  }
 }
 export default FilesController;
 module.exports = FilesController;
